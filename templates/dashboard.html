@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Agri AI</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Ionicons for some quick icons -->
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="dashboard-page">
+    <nav class="navbar glass-panel">
+        <div class="nav-brand">🌱 Agri AI</div>
+        <div class="nav-links">
+            <span class="user-greeting">Welcome, {{ name }}!</span>
+            <a href="{{ url_for('logout') }}" class="btn outline-btn">Logout</a>
+        </div>
+    </nav>
+
+    <main class="dashboard-container">
+        <!-- Weather Info -->
+        <div class="widget weather-widget glass-panel slide-up" style="display: flex; gap: 2rem; justify-content: space-between; align-items: stretch; background: var(--surface-bg);">
+            {% if weather.error %}
+            <div style="width: 100%;">
+                <h3><ion-icon name="warning-outline" style="color: var(--error);"></ion-icon> Weather Update</h3>
+                <p style="color: var(--text-muted); margin-top: 0.5rem;">{{ weather.message }}</p>
+            </div>
+            {% else %}
+            <div style="flex: 1;">
+                <h3 style="color: #eab308; margin-bottom: 1rem;"><ion-icon name="partly-sunny-outline"></ion-icon> Live Weather (Gorakhpur)</h3>
+                <div style="display: flex; gap: 1.5rem; flex-wrap: wrap;">
+                    <div style="background: rgba(255,255,255,0.8); padding: 0.75rem 1rem; border-radius: 8px;">
+                        <span style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">Temperature</span>
+                        <div style="font-size: 1.5rem; font-weight: 700; color: var(--text-main);">{{ weather.temperature }}°C</div>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.8); padding: 0.75rem 1rem; border-radius: 8px;">
+                        <span style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">Humidity</span>
+                        <div style="font-size: 1.5rem; font-weight: 700; color: var(--text-main);">{{ weather.humidity }}%</div>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.8); padding: 0.75rem 1rem; border-radius: 8px;">
+                        <span style="font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase;">Condition</span>
+                        <div style="font-size: 1.1rem; font-weight: 500; color: var(--text-main); margin-top: 0.3rem;">{{ weather.condition }}</div>
+                    </div>
+                </div>
+            </div>
+            <div style="flex: 1; background: {% if weather.humidity > 70 %}rgba(239, 68, 68, 0.1){% elif weather.temperature > 35 %}rgba(245, 158, 11, 0.1){% else %}rgba(34, 197, 94, 0.1){% endif %}; padding: 1.5rem; border-radius: 12px; border-left: 4px solid {% if weather.humidity > 70 %}var(--error){% elif weather.temperature > 35 %}#f59e0b{% else %}var(--success){% endif %};">
+                <h4 style="color: {% if weather.humidity > 70 %}var(--error){% elif weather.temperature > 35 %}#f59e0b{% else %}var(--success){% endif %}; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+                    <ion-icon name="flash-outline"></ion-icon> Smart Farming Tip
+                </h4>
+                <p style="font-size: 0.95rem; line-height: 1.5; color: var(--text-main);">{{ weather.tip }}</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="main-content">
+            <!-- Upload Section -->
+            <div class="upload-section glass-panel slide-up" style="animation-delay: 0.1s;">
+                <h2>Diagnose Crop</h2>
+                <p class="section-desc">Upload a picture of a leaf or take one with your camera.</p>
+                
+                <form id="upload-form" enctype="multipart/form-data">
+                    <div class="file-drop-area" id="drop-area">
+                        <ion-icon name="cloud-upload-outline" class="upload-icon"></ion-icon>
+                        <div class="btn-group" style="display: flex; gap: 1rem; margin-bottom: 0.5rem; justify-content: center; position: relative; z-index: 10;">
+                            <span class="fake-btn" id="fake-upload-btn" onclick="document.getElementById('image-input').click()">Choose Image</span>
+                            <button type="button" class="btn outline-btn" id="camera-btn" style="width: auto; padding: 0.5rem 1rem; background: rgba(255,255,255,0.7); border-radius: 20px;"><ion-icon name="camera-outline"></ion-icon> Take Photo</button>
+                        </div>
+                        <span class="file-msg">or drag and drop here</span>
+                        <input type="file" id="image-input" name="image" accept="image/*" capture="environment">
+                    </div>
+
+                    <!-- Camera Preview Container -->
+                    <div id="camera-container" class="hidden" style="margin-bottom: 1.5rem; text-align: center;">
+                        <video id="camera-video" autoplay playsinline style="width: 100%; max-width: 400px; border-radius: var(--radius-md); box-shadow: var(--shadow-soft);"></video>
+                        <div style="margin-top: 1rem; display: flex; justify-content: center; gap: 1rem;">
+                            <button type="button" id="capture-btn" class="btn primary-btn" style="width: auto;"><ion-icon name="camera"></ion-icon> Capture</button>
+                            <button type="button" id="close-camera-btn" class="btn outline-btn" style="width: auto;">Cancel</button>
+                        </div>
+                        <canvas id="camera-canvas" class="hidden"></canvas>
+                    </div>
+                    
+                    <div id="image-preview" class="hidden">
+                        <img id="preview-img" src="" alt="Preview">
+                        <button type="button" id="clear-btn" class="btn text-btn">Clear Image</button>
+                    </div>
+
+                    <button type="submit" id="analyze-btn" class="btn primary-btn btn-animate" disabled>
+                        <ion-icon name="scan-outline"></ion-icon> Analyze Leaf
+                    </button>
+                </form>
+                
+                <div id="loading" class="hidden">
+                    <div class="loader"></div>
+                    <p>Analyzing via AI Model...</p>
+                </div>
+            </div>
+
+            <!-- Result Section -->
+            <div id="result-section" class="result-section glass-panel hidden">
+                <h2 class="result-title">Analysis Result</h2>
+                <div class="result-card">
+                    <div class="diagnosis">
+                        <span class="label">Detected condition:</span>
+                        <h3 id="disease-name">---</h3>
+                    </div>
+                    <div class="confidence">
+                        <span class="label">Confidence:</span>
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="confidence-bar"></div>
+                        </div>
+                        <span id="confidence-text">0%</span>
+                    </div>
+                </div>
+                
+                <div class="action-plan">
+                    <div class="plan-card treatment-card">
+                        <h4><ion-icon name="medkit-outline"></ion-icon> Recommended Treatment</h4>
+                        <p id="treatment-text">---</p>
+                    </div>
+                    <div class="plan-card tips-card">
+                        <h4><ion-icon name="leaf-outline"></ion-icon> Farming Tips</h4>
+                        <p id="tips-text">---</p>
+                    </div>
+                    <div class="plan-card prevention-card" style="margin-top: 1.5rem;">
+                        <h4 style="color: #f59e0b;"><ion-icon name="shield-checkmark-outline"></ion-icon> Prevention</h4>
+                        <p id="prevention-text">---</p>
+                    </div>
+                    <div class="plan-card environment-card" style="margin-top: 1.5rem;">
+                        <h4 style="color: #06b6d4;"><ion-icon name="partly-sunny-outline"></ion-icon> Environment</h4>
+                        <p id="environment-text">---</p>
+                    </div>
+                </div>
+
+                <div class="feedback-card plan-card" style="margin-top: 1.5rem; text-align: center;">
+                    <h4>Was this diagnosis helpful?</h4>
+                    <div class="feedback-actions" style="display: flex; gap: 1rem; justify-content: center; margin-top: 1rem;">
+                        <button type="button" class="btn outline-btn" id="btn-feedback-yes"><ion-icon name="thumbs-up-outline"></ion-icon> Yes</button>
+                        <button type="button" class="btn outline-btn" id="btn-feedback-no"><ion-icon name="thumbs-down-outline"></ion-icon> No</button>
+                    </div>
+                    <div id="feedback-form-container" class="hidden" style="margin-top: 1rem; text-align: left;">
+                        <textarea id="feedback-comments" rows="3" placeholder="Help us improve. What can we do better? (Optional)" style="width: 100%; border-radius: var(--radius-md); padding: 0.75rem; border: 1px solid rgba(0,0,0,0.1); font-family: 'Inter', sans-serif; resize: vertical;"></textarea>
+                        <button type="button" id="btn-submit-feedback" class="btn primary-btn btn-animate" style="margin-top: 0.75rem; width: auto;">Submit Feedback</button>
+                    </div>
+                    <p id="feedback-success" class="hidden" style="color: var(--success); margin-top: 1rem; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 0.5rem;"><ion-icon name="checkmark-circle"></ion-icon> Thank you! Your feedback helps us improve.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Analytics Section -->
+        <div class="analytics-section glass-panel slide-up" style="animation-delay: 0.2s; margin-top: 2rem; padding: 2rem;">
+            <h2><ion-icon name="stats-chart-outline"></ion-icon> Your Insights</h2>
+            <div class="charts-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 1.5rem;">
+                <div class="chart-container" style="background: rgba(255,255,255,0.7); padding: 1rem; border-radius: var(--radius-md);">
+                    <canvas id="distribution-chart"></canvas>
+                </div>
+                <div class="chart-container" style="background: rgba(255,255,255,0.7); padding: 1rem; border-radius: var(--radius-md);">
+                    <canvas id="history-chart"></canvas>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Chatbot Widget -->
+    <div class="chat-widget glass-panel" id="chat-widget" style="position: fixed; bottom: 80px; right: 2rem; width: 350px; border-radius: var(--radius-lg); overflow: hidden; z-index: 1000; display: none;">
+        <div class="chat-header" style="background: var(--primary); color: white; padding: 1rem; display: flex; justify-content: space-between; align-items: center;">
+            <h4 style="margin: 0; display: flex; align-items: center; gap: 0.5rem;"><ion-icon name="chatbubbles-outline"></ion-icon> AI Assistant</h4>
+            <button id="close-chat" style="background: none; border: none; color: white; cursor: pointer;"><ion-icon name="close" style="font-size: 1.2rem;"></ion-icon></button>
+        </div>
+        <div class="chat-body" id="chat-body" style="height: 300px; padding: 1rem; overflow-y: auto; background: rgba(255,255,255,0.9); display: flex; flex-direction: column; gap: 1rem;">
+            <div class="chat-message bot-message" style="background: #e2e8f0; padding: 0.75rem; border-radius: 1rem 1rem 1rem 0; width: fit-content; max-width: 80%; font-size: 0.9rem;">
+                Hi there! Ask me any questions about crop diseases and care.
+            </div>
+        </div>
+        <div class="chat-footer" style="padding: 0.75rem; background: white; border-top: 1px solid rgba(0,0,0,0.1); display: flex; gap: 0.5rem;">
+            <input type="text" id="chat-input" placeholder="Type your message..." style="flex: 1; padding: 0.5rem; border: 1px solid #ccc; border-radius: var(--radius-md); outline: none;">
+            <button id="send-chat" class="btn primary-btn" style="width: auto; padding: 0.5rem 1rem;"><ion-icon name="send"></ion-icon></button>
+        </div>
+    </div>
+    
+    <button id="toggle-chat-btn" class="btn primary-btn" style="position: fixed; bottom: 2rem; right: 2rem; width: 60px; height: 60px; border-radius: 50%; display: flex; justify-content: center; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.2); z-index: 1000;">
+        <ion-icon name="chatbubbles" style="font-size: 1.8rem;"></ion-icon>
+    </button>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
