@@ -9,6 +9,23 @@ from flask import Flask, request, jsonify, render_template, redirect, url_for, s
 from werkzeug.security import generate_password_hash, check_password_hash
 import google.genai as genai
 from google.genai import types
+# Load environment variables from .env if present
+try:
+    env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
+    if os.path.exists(env_path):
+        with open(env_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    key, val = line.split('=', 1)
+                    key = key.strip()
+                    val = val.strip()
+                    if (val.startswith('"') and val.endswith('"')) or (val.startswith("'") and val.endswith("'")):
+                        val = val[1:-1]
+                    os.environ[key] = val
+except Exception as e:
+    print(f"Warning: Failed to load .env file: {e}")
+
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'  # Reduce TF logs
 from tensorflow.keras.models import load_model
 from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
@@ -348,6 +365,26 @@ def chat():
     except Exception as e:
         print(f"Gemini API Error: {str(e)}")
         return jsonify({'reply': "I am sorry, our AI advisor ran into a technical hurdle. Please try your question again."})
+
+        
+    def init_db():
+        conn = sqlite3.connect('database.db')
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                email TEXT UNIQUE NOT NULL,
+                password TEXT NOT NULL
+            )
+        """)
+
+        conn.commit()
+        conn.close()
+
+# app start hote hi table create hogi
+    init_db()
 
 if __name__ == '__main__':
     load_ai_model()
